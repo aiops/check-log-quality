@@ -1,0 +1,16 @@
+#!/bin/bash
+
+export source_directory="${BASH_SOURCE[0]%check-log-quality}"
+if [[ "$source_directory" == "" ]]; then
+    source_directory='./'
+fi
+
+source "${source_directory}/lib/utils.sh"
+source "${source_directory}/lib/functions.sh"
+
+initialise_variables
+process_command_arguments "$@"
+retval=$?
+
+iterate_through_targets list_files_from_find
+
