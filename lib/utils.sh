@@ -20,11 +20,6 @@ function initialise_variables {
 
     export opt_debug=0
     export opt_verbose=0
-    export opt_show_diff=0
-    export opt_real_run=0
-    export opt_backup=1
-    export opt_dots=0
-    export bash_arg
 
     export opt_whitelist_save=0
     export opt_whitelist_filename=".check-log-quality.ignore"
@@ -64,8 +59,6 @@ function initialise_variables {
 
     export parallelism=1
 
-    export loop_function=apply_check_on_one_file
-
     export opt_name_filter=''
     export cmd_size="-and ( -size -1024k )"  # find will ignore files > 1MB
 
@@ -73,16 +66,11 @@ function initialise_variables {
 
     echo '/// ///' >$tmpfile.git.ignore
     trap 'rm -f $tmpfile.git.ignore' EXIT
-
-    GREP=$(ggrep --version >/dev/null 2>&1 && \
-        echo 'ggrep' || \
-        echo 'grep')
-    export GREP
 }
 
 function process_command_arguments {
     local OPTIND
-    while getopts ":dvfibGmhN:P:w:r:" opt; do
+    while getopts ":dvfibGmN:P:w:r:" opt; do
         case $opt in
             d)
                 warning "-d Enable debug mode."
@@ -138,15 +126,6 @@ function process_command_arguments {
                 warning "-r log retrieve script: $OPTARG"
                 log_retrieve_script=$OPTARG
             ;;
-            h)
-                d="dirname ${BASH_SOURCE[0]}"
-                if [[ -f "$($d)"/../README.md ]]; then
-                    cat "$($d)"/../README.md
-                else
-                    zcat /usr/share/doc/check-log-quality/README.md.gz
-                fi
-                return 10
-            ;;
             w)
                 warning "-w Use $OPTARG as white list file instead of "\
                     "$opt_whitelist_filename."
@@ -183,14 +162,6 @@ function process_command_arguments {
         $cmd_part_ignore_scm $cmd_part_ignore_bin\
         ) -prune -o "
     warning "Target directories: ${directories[*]}"
-
-    if [[ $opt_show_diff = 1 ||\
-        $opt_backup = 1 ||\
-        $opt_real_run = 0 ||\
-        $opt_verbose = 1 ]]
-    then
-        loop_function=decorate_one_iteration
-    fi
 
     return 0
 }

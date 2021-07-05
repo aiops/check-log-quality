@@ -7,7 +7,7 @@ function list_files_from_find {
     find ${directories[*]} $cmd_part_ignore -type f -and \( $opt_name_filter \) $cmd_size -print
 }
 
-command() {
+function parallel_command {
     python $log_retrieve_script -i $1 -o $2
 }
 
@@ -22,12 +22,13 @@ function iterate_through_targets {
         c=$(( c + 1 ))
         ((i=i%N)); ((i++==0)) && wait
         output_file=$tmpfile.$c
-        command $file $output_file & 
+        parallel_command $file $output_file & 
     done
     wait
 }
 
 function merge_output_files {
+    rm $tmpfile".all" 2> /dev/null
     retrieved_files=$(ls -a | grep -i $tmpfile.[1-9])
     for file in $retrieved_files; do
         (cat "${file}"; echo) >> $tmpfile".all"
