@@ -7,32 +7,31 @@ function list_files_from_find {
     find ${directories[*]} $cmd_part_ignore -type f -and \( $opt_name_filter \) $cmd_size -print
 }
 
+command() {
+    python $log_retrieve_script -i $1 -o $2
+}
+
 function iterate_through_targets {
-    local file_lister_function=$1
+    local all_files=$1
     local retval=0
-
-    "$file_lister_function"|\
-    while read -r filename; do
-        printf '%s\0' "$filename"
-    done|\
-    tee\
-        >($prefilter_progress_function)\
-        >(xargs\
-            -0\
-            $cmd_part_parallelism\
-            -n 100\
-            python 
-        )\
     
-    return $retval
+    N=$parallelism
+    i=0
+    c=0
+    for file in $all_files; do
+        c=$(( c + 1 ))
+        ((i=i%N)); ((i++==0)) && wait
+        output_file=$tmpfile.$c
+        command $file $output_file & 
+    done
+    wait
 }
 
-function prefilter_progress_none {
-    cat >/dev/null
-}
-
-function prefilter_progress_dots {
-    while IFS= read -r -d '' filename; do
-        echo -n "." >&2
+function merge_output_files {
+    retrieved_files=$(ls -a | grep -i $tmpfile.[1-9])
+    for file in $retrieved_files; do
+        (cat "${file}"; echo) >> $tmpfile".all"
+        rm "$file"
     done
 }
+

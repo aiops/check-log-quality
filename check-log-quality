@@ -12,5 +12,7 @@ initialise_variables
 process_command_arguments "$@"
 retval=$?
 
-iterate_through_targets list_files_from_find
+all_files=$(list_files_from_find)
 
+iterate_through_targets "${all_files[@]}"
+merge_output_files
