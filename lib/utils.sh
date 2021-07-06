@@ -26,7 +26,7 @@ function initialise_variables {
 
     export tmpfile=".retrieved-logs"
 
-    export log_retrieve_script="./python/count_lines.py"
+    export log_retrieve_script="$source_directory/python/count_lines.py"
 
     # TODO Creat a whitelist of extensions that we support!!!!
     export cmd_part_ignore_scm="\
