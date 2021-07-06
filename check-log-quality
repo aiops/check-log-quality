@@ -9,10 +9,32 @@ source "${source_directory}/lib/utils.sh"
 source "${source_directory}/lib/functions.sh"
 
 initialise_variables
+retval=$?
+if [[ retval -ne 0 ]]; then
+    exit $retval
+fi
+
 process_command_arguments "$@"
 retval=$?
+if [[ retval -ne 0 ]]; then
+    exit $retval
+fi
 
 all_files=$(list_files_from_find)
+if [[ retval -ne 0 ]]; then
+    warning "File retrieval failed. Exiting..."
+    exit $retval
+fi
 
 iterate_through_targets "${all_files[@]}"
+retval=$?
+if [[ retval -ne 0 ]]; then
+    exit $retval
+fi
+
 merge_output_files
+retval=$?
+if [[ retval -ne 0 ]]; then
+    warning "Output file merging failed. Exiting..."
+    exit $retval
+fi
