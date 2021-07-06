@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import pandas as pd
 import logging as log
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -9,10 +10,9 @@ from utils import *
 class LogRetriver:
     def __init__(self, input_path, output_path, log_types=None):
         if not log_types:
-            self.log_types = ["error", "info"]
+            self.log_types = ["error", "info", "trace"]
         else:
             self.log_types = log_types
-
         self.input_path = input_path
         self.output_path = output_path
 
@@ -20,56 +20,53 @@ class LogRetriver:
         print("{} --------- {}".format(len(re.findall("\(", line)), len(re.findall("\)", line))))
         return len(re.findall("\(", line)) - len(re.findall("\)", line))
 
-    def parse_file(self, pattern=None):
+    def parse_file(self, file_path, log_type, pattern=None):
         if not pattern:
             pattern = "[lL][oO][gG]\w*_?\w*\."
+        pattern += log_type + '\('
         matches = []
         matches_clean = []
         open_braces = 0
         try:
-            with open(self.input_path, "r") as f:
+            with open(file_path, "r") as f:
                 substr = ""
                 for idx, line in enumerate(f.readlines()):
-                    for log_type in self.log_types:
-                        pattern += log_type + '\('
-
-                        print("-------"*10)
-                        # print(line)
-                        if open_braces > 0:
-                            substr += line.strip()
+                    print("-------" * 10)
+                    # print(line)
+                    if open_braces > 0:
+                        substr += line.strip()
+                        open_braces = self.count_braces(substr)
+                        # open_braces += self.count_braces(substr) ##### Old
+                        # result = re.search(pattern, line)
+                        # if result:
+                        #     substr = line[result.start():].strip()
+                        #     open_braces = self.count_braces(substr)
+                    else:
+                        result = re.search(pattern, line)
+                        print(result)
+                        if result:
+                            substr = line[result.start():].strip()
                             open_braces = self.count_braces(substr)
-                            # open_braces += self.count_braces(substr) Old
-                            # result = re.search(pattern, line)
-                            # if result:
-                            #     substr = line[result.start():].strip()
-                            #     open_braces = self.count_braces(substr)
                         else:
-                            result = re.search(pattern, line)
-                            print(result)
-                            if result:
-                                substr = line[result.start():].strip()
-                                open_braces = self.count_braces(substr)
-                            else:
-                                open_braces = 0
-                                # substr = ""
-                        print("The substr is {}   wrwa \n".format(substr))
-
-                        if open_braces == 0 and result:
-                            matches.append((idx, log_type, self.input_path, substr))
-                            matches_clean.append((idx, log_type, self.input_path, self._process(substr[re.search(pattern, substr).end():])))
+                            open_braces = 0
+                            # substr = ""
+                    print("The substr is {}   wrwa \n".format(substr))
+                    if open_braces == 0 and result:
+                        matches.append((idx, log_type, file_path, substr))
+                        matches_clean.append((str(idx) + "," + str(log_type)+ "," +  file_path+ "," +  self._process(substr[re.search(pattern, substr).end():])))
         except Exception as e:
-            log.exception(e)
+            print("IT WENT SOUTH")
             pass
-        return matches, matches_clean
+        return matches, "\n".join([x for x in matches_clean])
 
     def extract_log_messages(self):
         logs_ = []
         logs_clean = []
-        for log_type in ['error', "info"]:
+        for log_type in ['error', "info", "trace"]:
             l, l_clean = self.parse_file(self.input_path, log_type)
             logs_.append(l)
             logs_clean.append(l_clean)
-        return logs_, logs_clean
+        return [x for x in logs_clean if x != []]
 
     def _process(self, log_msg):
         def replace_placeholders(x):
@@ -153,6 +150,9 @@ class LogRetriver:
         x = x.strip()
         return x
 
+    def store(self, result):
+        with open(self.output_path, "w") as file:
+            file.writelines(result)
 
 def main():
     args = setup_command_line_arg()
@@ -161,11 +161,14 @@ def main():
     output_file = args.output
 
     lr = LogRetriver(input_file, output_file)
-    result = lr.parse_file()
+    result = lr.extract_log_messages()
 
-    print(result)
+    lr.store("\n".join([x for x in result]))
+    # lr.store("\n".join([x for x in result]))
+    # print()
     
 
 if __name__ == "__main__":
+
     main()
 
