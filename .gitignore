@@ -1,6 +1,7 @@
 .retrieved-logs*
 *.pyc
 __pycache__/
+.pytest_cache/
 *.csv
 .idea/
 *.pdf
