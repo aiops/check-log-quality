@@ -17,6 +17,8 @@ def main():
             for idx, line in enumerate(f.readlines()):
                 i += 1
             print("File {} contains {} lines.".format(input_file, i))
+    except UnicodeDecodeError as ede:
+        log.warning("Unable to read non-textual file {}".format(input_file))
     except Exception as e:
         log.exception(e)
         exit(-1)
