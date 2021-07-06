@@ -1,2 +1,5 @@
 .retrieved-logs*
 *.pyc
+__pycache__/
+*.csv
+*.txt

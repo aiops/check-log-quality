@@ -24,7 +24,7 @@ function initialise_variables {
     export opt_whitelist_save=0
     export opt_whitelist_filename=".check-log-quality.ignore"
 
-    export tmpfile=.retrieved-logs
+    export tmpfile=".retrieved-logs"
 
     export log_retrieve_script="./python/count_lines.py"
 
