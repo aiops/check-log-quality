@@ -6,24 +6,42 @@ import logging as log
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils import *
+from retriever import LogRetriver
 
-class LogRetriver:
-    def __init__(self, input_path, output_path, log_types=None):
-        if not log_types:
-            self.log_types = ["error", "info", "trace"]
-        else:
-            self.log_types = log_types
-        self.input_path = input_path
-        self.output_path = output_path
+log.basicConfig(level=log.DEBUG)
 
-    def count_braces(self, line):
-        print("{} --------- {}".format(len(re.findall("\(", line)), len(re.findall("\)", line))))
-        return len(re.findall("\(", line)) - len(re.findall("\)", line))
+class PyLogRetriver(LogRetriver):
+    log_level_aliases = {
+        "debug": ["debug"],
+        "info": ["info"],
+        "warning": ["warning", "warn"],
+        "error": ["error", "exception"],
+        "critical": ["critical"],
+        "log": ["log"]
+    }
+    placeholder = "#LOGID#"
+    reg_log_start = r"^.*({})\(.*$".format(placeholder)
+    reg_comment = r"\s*#.*\s*$"
 
-    def parse_file(self, file_path, log_type, pattern=None):
+    def __init__(self, multiline_max=5):
+        super().__init__(multiline_max)
+
+    def get_comment_regex(self):
+        return self.reg_comment
+
+    def retrieve_log_lines(self, lines):
+        regex_elements = []
+        for key in self.log_level_aliases:
+            for value_element in self.log_level_aliases[key]:
+                regex_elements.append(self.reg_log_start.replace(self.placeholder, value_element))
+        regex_result = "|".join(regex_elements)
+        print(regex_result)
+        return self._retrieve_log_lines(lines, regex_result)
+
+    def ____parse_file(self, file_path, log_type, pattern=None):
         if not pattern:
-            pattern = "[lL][oO][gG]\w*_?\w*\."
-        pattern += log_type + '\('
+            pattern = r"[lL][oO][gG]\w*_?\w*\."
+        pattern += log_type + r'\('
         matches = []
         matches_clean = []
         open_braces = 0
@@ -99,7 +117,7 @@ class LogRetriver:
                 return None
 
         def remove_multiple_placeholders(x):
-            return re.sub("\*\*.", "", x)
+            return re.sub(r"\*\*.", "", x)
 
         def split_string(x):
             start_chars = ["'", '`', '"', 'f"', "f'", 'u"', "u'", 's"', "s'", 'e, "', "f('", "f(\""]
@@ -155,17 +173,31 @@ class LogRetriver:
             file.writelines(result)
 
 def main():
-    args = setup_command_line_arg()
+    #args = setup_command_line_arg()
 
-    input_file = args.input
-    output_file = args.output
+    #input_file = args.input
+    #output_file = args.output
 
-    lr = LogRetriver(input_file, output_file)
-    result = lr.extract_log_messages()
+    lr = PyLogRetriver()
+    #result = lr.extract_log_messages()
 
-    lr.store("\n".join([x for x in result]))
+    #lr.store("\n".join([x for x in result]))
     # lr.store("\n".join([x for x in result]))
     # print()
+
+    lines1 = ['log.error("adsffsdf",', '"asdfsdf asdf (),"', '()(', '))' ]
+    lines2 = ['log.error("adsffsdf",', '"asdfsdf asdf (),"', '()(', '))', 'asd', 'asssss' ]
+    lines3 = ['log.error("adsffsdf",', '"asdfsdf asdf (),"', '()(', ')', 'pp', 'asdas', '"asd"', "asd"]
+    lines4 = ['log.error("adsffsdf",', '"asdfsdf asdf (),"', '()(']
+
+    log_lines = lr.retrieve_log_lines(lines1)
+    print(log_lines)
+    log_lines = lr.retrieve_log_lines(lines2)
+    print(log_lines)
+    log_lines = lr.retrieve_log_lines(lines3)
+    print(log_lines)
+    log_lines = lr.retrieve_log_lines(lines4)
+    print(log_lines)
     
 
 if __name__ == "__main__":
