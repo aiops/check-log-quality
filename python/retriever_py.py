@@ -1,12 +1,8 @@
-import sys
-import os
 import re
-import pandas as pd
 import logging as log
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils import *
-from retriever import LogRetriver
+from python.utils import *
+from python.retriever import LogRetriver
 
 log.basicConfig(level=log.DEBUG)
 
@@ -35,8 +31,9 @@ class PyLogRetriver(LogRetriver):
             for value_element in self.log_level_aliases[key]:
                 regex_elements.append(self.reg_log_start.replace(self.placeholder, value_element))
         regex_result = "|".join(regex_elements)
-        print(regex_result)
         return self._retrieve_log_lines(lines, regex_result)
+
+    ##############################################
 
     def ____parse_file(self, file_path, log_type, pattern=None):
         if not pattern:

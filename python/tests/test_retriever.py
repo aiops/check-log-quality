@@ -14,7 +14,7 @@ class LogRetriverTest(LogRetriver):
     def get_comment_regex(self):
         return r"\s*#.*\s*$"
 
-class TestRetrieveLogLines(unittest.TestCase):
+class TestRetrieverLogLines(unittest.TestCase):
 
     def setUp(self):
         configure_logging()
