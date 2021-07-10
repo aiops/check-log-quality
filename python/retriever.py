@@ -2,7 +2,7 @@ import re
 import logging as log
 
 
-class LogRetriver:    
+class LogRetriever:    
     reg_string = r"\".*?\"|\'.*?\'"
 
     def __init__(self, multiline_max=5):

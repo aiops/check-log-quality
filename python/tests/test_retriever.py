@@ -4,17 +4,17 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 #sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), '..'))
-from retriever import LogRetriver
+from retriever import LogRetriever
 from tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")
 
-class LogRetriverTest(LogRetriver):        
+class LogRetriverTest(LogRetriever):        
     def get_comment_regex(self):
         return r"\s*#.*\s*$"
 
-class TestRetrieverLogLines(unittest.TestCase):
+class TestLogRetriver(unittest.TestCase):
 
     def setUp(self):
         configure_logging()
@@ -24,7 +24,7 @@ class TestRetrieverLogLines(unittest.TestCase):
         t2 = "()()()"
         t3 = "((())))"
         t4 = "((((()))"
-        lr = LogRetriver()
+        lr = LogRetriever()
         self.assertEqual(lr.count_braces(t1), 0)
         self.assertEqual(lr.count_braces(t2), 0)
         self.assertEqual(lr.count_braces(t3), -1)

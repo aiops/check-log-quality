@@ -3,13 +3,13 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from retriever_py import LogRetrieverPy
+from retriever_py import PyLogRetriver
 from tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")
 
-class TestPyLogRetriver(unittest.TestCase):
+class TestRetrieveLogLines(unittest.TestCase):
 
     def setUp(self):
         configure_logging()
@@ -54,7 +54,7 @@ class TestPyLogRetriver(unittest.TestCase):
 
     def test_retrieve_log_lines(self):
         test_cases = self.get_test_cases()
-        plr = LogRetrieverPy()
+        plr = PyLogRetriver()
         
         for file_path, expected in test_cases.items():
             lines = self.read_file_content(file_path)

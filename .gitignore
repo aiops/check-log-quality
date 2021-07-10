@@ -5,3 +5,6 @@ __pycache__/
 *.csv
 .idea/
 *.pdf
+venv/
+venv
+.vscode/
