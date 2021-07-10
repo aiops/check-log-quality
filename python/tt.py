@@ -18,17 +18,17 @@ def fff():
 
 # Check if all calls are collected
 
-#logging.log.warn("tt")
-#log.warn("I warn you")
-#w('test')
-#info("test")
-#log.exception("I warn you " + "asfasd" + "asd")
-#log.warning("aa {}".format("asd"))
-#log.warning("aa %s %s", "asd", "a")
-#log.warning("I warn you %s", aa)
-#log.info(fff())
-#log.warning(aa)
-#log.warning("%s %s %s", aa, "as", bb)
+logging.warn("tt")
+log.warn("I warn you")
+w('test')
+info("test")
+log.exception("I warn you " + "asfasd" + "asd")
+log.warning("aa {}".format("asd"))
+log.warning("aa %s %s", "asd", "a")
+log.warning("I warn you %s", aa)
+log.info(fff())
+log.warning(aa)
+log.warning("%s %s %s", aa, "as", bb)
 
 # Check log level inference
 

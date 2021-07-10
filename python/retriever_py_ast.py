@@ -1,6 +1,3 @@
-import os
-import sys
-import string
 import logging as log
 import re
 
@@ -72,19 +69,19 @@ class LogRetrieverPyAST:
         """
         try:
             # generate events for this node on each checker
-            self.visit_all(astroid)
+            self.visit(astroid)
             # recurse on children
             for child in astroid.get_children():
                 self.walk(child)
         except Exception as e:
             log.exception(e)
 
-    def visit_all(self, node):
+    def visit(self, node):
         if isinstance(node, astroid.Import):
             self.visit_import(node)
-        if isinstance(node, astroid.ImportFrom):
+        elif isinstance(node, astroid.ImportFrom):
             self.visit_importfrom(node)
-        if isinstance(node, astroid.Call):
+        elif isinstance(node, astroid.Call):
             self.visit_call(node)
 
     def visit_import(self, node):
