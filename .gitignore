@@ -1,6 +1,11 @@
 .retrieved-logs*
 *.pyc
 __pycache__/
+.pytest_cache/
 *.csv
 .idea/
 *.pdf
+venv/
+venv
+.vscode/
+result/
