@@ -3,7 +3,7 @@ import re
 
 import astroid
 
-from python.utils import *
+from utils import *
 
 
 class LogInstructionParseError(Exception):
@@ -376,6 +376,7 @@ def main():
 
     input_file = args.input
     output_file = args.output
+    output_header = args.output_header
 
     if not is_python_file(input_file):
         log.error("Only python files are supported. This is not a python file: %s", input_file)
@@ -391,7 +392,7 @@ def main():
         log.error("Parsing of log messages failed. File: %s", input_file)
         log.exception(e)
 
-    store_results(output_file, lr.line_numbers, lr.log_levels, lr.log_messages)
+    store_results(output_file, lr.line_numbers, lr.log_levels, lr.log_messages, output_header)
 
 
 if __name__ == "__main__":

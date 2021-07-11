@@ -101,14 +101,14 @@
 #logging.warning(f"Warning {w}")
 #logging.warning(f"Warning {i_w}")
 
-#import logging
+import logging
 
-#i_w = input("Enter your name: ")
-#w = "W"
+i_w = input("Enter your name: ")
+w = "W"
 
-#logging.warning("%s" % ("Warning"))
-#logging.warning("Warning %s %d" % (w, 5))
-#logging.warning("Warning %s %%" % (w, i_w))
+logging.warning("%s" % ("Warning"))
+logging.warning("Warning %s %d" % (w, 5))
+logging.warning("Warning %s %%" % (w, i_w))
 
 #from oslo_log import log as logging
 #log = logging.getLogger(__name__)
