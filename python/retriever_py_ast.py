@@ -3,31 +3,15 @@ import re
 
 import astroid
 
+from python.utils import *
+
 
 class LogInstructionParseError(Exception):
     """Error raised whenever a log instruction cannot be parsed."""
 
 
-def is_method_call(func, types=(), methods=()):
-    """Determines if a BoundMethod node represents a method call.
-    Args:
-      func (astroid.BoundMethod): The BoundMethod AST node to check.
-      types (Optional[String]): Optional sequence of caller type names to restrict check.
-      methods (Optional[String]): Optional sequence of method names to restrict check.
-    Returns:
-      bool: true if the node represents a method call for the given type and
-      method names, False otherwise.
-    """
-    return (
-        isinstance(func, astroid.BoundMethod)
-        and isinstance(func.bound, astroid.Instance)
-        and (func.bound.name in types if types else True)
-        and (func.name in methods if methods else True)
-    )
-
-
 class LogRetrieverPyAST:
-    DEFAULT_LOGGING_MODULES = { "logging" }
+    DEFAULT_LOGGING_MODULES = { "logging", "oslo_log" }
     DEFAULT_LOG_LEVEL_ALIASES = {
         "debug": ["debug"],
         "info": ["info"],
@@ -53,6 +37,10 @@ class LogRetrieverPyAST:
         self.log_method_aliases = {self.log_method}
 
         self.variable_token = variable_token
+
+        self.line_numbers = []
+        self.log_levels = []
+        self.log_messages = []
 
         self.result = {
             "log_message": [],
@@ -114,7 +102,10 @@ class LogRetrieverPyAST:
             if isinstance(node.expr, astroid.Attribute):
                 return check_logging_attr(node.expr)
             elif isinstance(node.expr, astroid.Name):
-                return node.expr.name in self._logging_module_aliases
+                return (
+                    node.expr.name in self._logging_module_aliases or
+                    node.expr.name in self.log_method_aliases
+                )
             else:
                 return False
         def check_logging_attr(node):
@@ -140,11 +131,12 @@ class LogRetrieverPyAST:
                 pass
             return False, None
 
+        name = None
         if check_logging_attr(node.func):
             name = node.func.attrname
-        elif check_logging_name(node.func):
+        if not name and check_logging_name(node.func):
             name = node.func.name
-        else:
+        if not name:
             result, name = is_logger_class()
             if not result:
                 return
@@ -152,31 +144,37 @@ class LogRetrieverPyAST:
         try:
             (log_message, level, line_number) = self._parse_log_instruction(node, name)
         except Exception as e:
-            log.exception(e)
+            log.info("Skipping line {}".format(node.lineno))
+            if log.root.level <= log.DEBUG: # Only print if debug is enabled
+                log.exception(e)
             return
 
-        self.result["log_message"].append(log_message)
-        self.result["level"].append(level)
-        self.result["line_number"].append(line_number)
-        
+        args = node.args[1:]
+        if len(args) > 0:
+            log_message = self._resolve_logging_args(log_message, args)
+
+        self.log_messages.append(log_message)
+        self.log_levels.append(level)
+        self.line_numbers.append(line_number)
+
 
     def _parse_log_instruction(self, node, name):
         if name == "log":
             if node.starargs or node.kwargs or len(node.args) < 2:
                 # Either a malformed call, star args, or double-star args. Beyond
                 # the scope of this checker.
-                return
+                self.get_exception("Unable to parse log message.", node)
             format_pos = 1
-            level = self.infer_log_level(node.args[0])
+            level = self._infer_log_level(node.args[0])
         elif name in self.log_level_aliases:
             if node.starargs or node.kwargs or not node.args:
                 # Either no args, star args, or double-star args. Beyond the
                 # scope of this checker.
-                return
+                self.get_exception("Unable to parse log message.", node)
             format_pos = 0
             level = name
         else:
-            return
+            raise self.get_exception("Unable to parse log message.", node)
         level = self.alias_to_level[level]
 
         log_message_node = node.args[format_pos]
@@ -188,6 +186,7 @@ class LogRetrieverPyAST:
         line_number = node.lineno  
 
         return (log_message, level, line_number)
+
 
     def _parse_log_message(self, node):
         if not node:
@@ -207,16 +206,35 @@ class LogRetrieverPyAST:
             node = self._parse_joinedstr(node)
             node = self._parse_log_message(node)
         elif isinstance(node, astroid.BinOp) and node.op == '%':
-            node = self._parse_binop_format(node.left, node.right.elts)
+            if isinstance(node.right, astroid.Tuple):
+                node = self._parse_binop_format(node.left, node.right.elts)
+            else:
+                node = self._parse_binop_format(node.left, [node.right])
             node = self._parse_log_message(node)
+        elif isinstance(node, astroid.BinOp) and node.op == '+':
+            left = self._parse_log_message(node.left)
+            if left:
+                left = left.value
+            else:
+                left = self.variable_token
+            right = self._parse_log_message(node.right)
+            if right:
+                right = right.value
+            else:
+                right = self.variable_token
+            value = left + right
+            new_node = astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
+                    parent=node.parent, value=value)
+            node = self._parse_log_message(new_node)
         else:
             #print(node.repr_tree())
-            inferred = self.safe_infer(node)
+            inferred = self._safe_infer(node)
             #print(inferred.repr_tree())
             if inferred:
                 node = self._clone_node(node, inferred)
             else:
-                return None
+                return astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
+                            parent=node.parent, value=self.variable_token)
             node = self._parse_log_message(node)
         return node
 
@@ -224,7 +242,7 @@ class LogRetrieverPyAST:
     def _infer_log_level(self, arg):
         """Infer log level when e.g. logging.log(<level>, msg...) statement is given."""
         if isinstance(arg, astroid.Name) or isinstance(arg, astroid.Call):
-            arg = self.safe_infer(arg)
+            arg = self._safe_infer(arg)
             if isinstance(arg, astroid.Const):
                 level = log.getLevelName(arg.value)
             else:
@@ -279,11 +297,8 @@ class LogRetrieverPyAST:
         if not expr:
             return None
 
-        all_args = self._parse_arg_list(args)
-
-        value = expr.value
-        for a in all_args:
-            value = re.sub(self.STRING_FORMAT_VARABLE_REG, a, value, count=1)
+        parsed_args = self._parse_arg_list(args)
+        value = self._subst(self.STRING_FORMAT_VARABLE_REG, parsed_args, expr.value)
 
         return astroid.Const(lineno=attr.lineno, col_offset=attr.col_offset, 
                     parent=attr.parent, value=value)
@@ -295,14 +310,18 @@ class LogRetrieverPyAST:
             return None
             
         all_args = self._parse_arg_list(args)
-        value = expr.value
-        for a in all_args:
-            value = re.sub(self.STRING_BINOP_VARABLE_REG, a, value, count=1)
+        value = self._subst(self.STRING_BINOP_VARABLE_REG, all_args, expr.value)
+        
         return astroid.Const(lineno=string_f.lineno, col_offset=string_f.col_offset, 
                     parent=string_f.parent, value=value)
 
+    def _subst(self, reg, args, value):
+        for a in args:
+            value = re.sub(reg, str(a), value, count=1)
+        return value
+
     
-    def safe_infer(self, node, context=None):
+    def _safe_infer(self, node, context=None):
         """Return the inferred value for the given node.
         Return None if inference failed or if there is some ambiguity (more than
         one node has been inferred of different types).
@@ -333,6 +352,13 @@ class LogRetrieverPyAST:
         if callable(pytype):
             return pytype()
         return None
+
+    
+    def _resolve_logging_args(self, log_message, args):
+        parsed_args = self._parse_arg_list(args)
+        log_message = self._subst(self.STRING_BINOP_VARABLE_REG, parsed_args, log_message)
+        
+        return log_message
         
 
 def get_ast(filepath):
@@ -345,14 +371,31 @@ def get_ast(filepath):
     return ast
 
 
+def main():
+    args = setup_command_line_arg()
+
+    input_file = args.input
+    output_file = args.output
+
+    if not is_python_file(input_file):
+        log.error("Only python files are supported. This is not a python file: %s", input_file)
+
+    ast = get_ast(input_file)
+    if not ast:
+        log.error("AST parsin failed for python file: %s", input_file)
+
+    lr = LogRetrieverPyAST()
+    try:
+        lr.walk(ast)
+    except Exception as e:
+        log.error("Parsing of log messages failed. File: %s", input_file)
+        log.exception(e)
+
+    store_results(output_file, lr.line_numbers, lr.log_levels, lr.log_messages)
+
 
 if __name__ == "__main__":
-
-    path = "./tt.py"
-    lr = LogRetrieverPyAST()
-    ast = get_ast(path)
-    lr.walk(ast)
-    print(lr.result['log_message'])
+    main()
     
 
 
