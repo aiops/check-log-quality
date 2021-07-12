@@ -12,6 +12,13 @@ function verbose {
 }
 export -f verbose
 
+function debug {
+    if [[ $opt_debug = 1 ]]; then
+        warning "$@"
+    fi
+}
+export -f debug
+
 function initialise_variables {
     set -f
 
@@ -21,56 +28,42 @@ function initialise_variables {
     export opt_debug=0
     export opt_verbose=0
 
-    export opt_whitelist_save=0
-    export opt_whitelist_filename=".check-log-quality.ignore"
-
     export tmpfile=".retrieved-logs"
 
-    export log_retrieve_script="$source_directory/python/count_lines.py"
+    # Define log message retrieve scripts based on file extension
+    retrieve_py="$source_directory/python/retriever_py_ast.py"
+    declare -gA retrieve_scripts=( [".py"]=$retrieve_py )
+    export retrieve_scripts
 
-    # TODO Creat a whitelist of extensions that we support!!!!
+    # Build filter for find call
+    cmd_part_include_files=""
+    for file_extension in ${!retrieve_scripts[@]}; do
+        if [ -z "${cmd_part_include_files}" ]; then
+            cmd_part_include_files="-iname *$file_extension"
+        else
+            cmd_part_include_files="$cmd_part_include_files -o -iname *$file_extension"
+        fi
+    done
+    export cmd_part_include_files
+
+    # Ignore version directories
     export cmd_part_ignore_scm="\
         -o -iname .git\
         -o -iname .svn\
         -o -iname .hg\
         -o -iname CVS"
-    export cmd_part_ignore_bin="\
-        -o -iname *.gif\
-        -o -iname *.jpg\
-        -o -iname *.jpeg\
-        -o -iname *.png\
-        -o -iname *.zip\
-        -o -iname *.gz\
-        -o -iname *.bz2\
-        -o -iname *.xz\
-        -o -iname *.rar\
-        -o -iname *.po\
-        -o -iname *.pdf\
-        -o -iname *.woff\
-        -o -iname *.mov\
-        -o -iname *.mp4\
-        -o -iname *.jar\
-        -o -iname yarn.lock\
-        -o -iname package-lock.json\
-        -o -iname composer.lock\
-        -o -iname *.mo
-        -o -iname *.pyc"
-    export cmd_part_ignore
-
+    
     export parallelism=1
 
     export opt_name_filter=''
     export cmd_size="-and ( -size -1024k )"  # find will ignore files > 1MB
 
     export directories
-
-    echo '/// ///' >$tmpfile.git.ignore
-    trap 'rm -f $tmpfile.git.ignore' EXIT
 }
 
 function process_command_arguments {
     local OPTIND
-    while getopts ":dvfibGmN:P:w:r:" opt; do
+    while getopts ":dvfimN:P:" opt; do
         case $opt in
             d)
                 warning "-d Enable debug mode."
@@ -89,27 +82,16 @@ function process_command_arguments {
                 warning "-i Disable scm dir ignoring."
                 cmd_part_ignore_scm=''
             ;;
-            b)
-                warning "-b Disable binary ignoring."
-                cmd_part_ignore_bin=''
-            ;;
-            G)
-                warning "-G Apply .gitignore."
-                git ls-files --others --ignored --exclude-standard|\
-                while read -r filename; do
-                    printf './%s' "$filename"
-                done >$tmpfile.git.ignore
-            ;;
             m)
                 warning "-m Disable max-size check. Default is to ignore files > 1MB."
                 cmd_size=" "
             ;;
             N)
                 warning "-N Enable name filter: $OPTARG"
-                if [ -n "$opt_name_filter" ]; then
-                    opt_name_filter="$opt_name_filter -or -name $OPTARG"
-                else
+                if [ -z "$opt_name_filter" ]; then
                     opt_name_filter="-name $OPTARG"
+                else
+                    opt_name_filter="$opt_name_filter -or -name $OPTARG"
                 fi
             ;;
             P)
@@ -121,15 +103,6 @@ function process_command_arguments {
                 else
                     parallelism=$OPTARG
                 fi
-            ;;
-            r)
-                warning "-r log retrieve script: $OPTARG"
-                log_retrieve_script=$OPTARG
-            ;;
-            w)
-                warning "-w Use $OPTARG as white list file instead of "\
-                    "$opt_whitelist_filename."
-                opt_whitelist_filename=$OPTARG
             ;;
             \?)
                 warning "Invalid option: -$OPTARG"
@@ -157,9 +130,7 @@ function process_command_arguments {
     directories=( "$@" )
     cmd_part_ignore="(\
         -iname $tmpfile*\
-        -o -iname $opt_whitelist_filename\
-        -o -iname *.BAK\
-        $cmd_part_ignore_scm $cmd_part_ignore_bin\
+        $cmd_part_ignore_scm\ 
         ) -prune -o "
     warning "Target directories: ${directories[*]}"
 
