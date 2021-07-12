@@ -5,8 +5,8 @@ if [[ "$source_directory" == "" ]]; then
     source_directory='./'
 fi
 
-source "${source_directory}/lib/utils.sh"
-source "${source_directory}/lib/functions.sh"
+source "${source_directory}/bash_lib/utils.sh"
+source "${source_directory}/bash_lib/functions.sh"
 
 initialise_variables
 retval=$?
@@ -21,6 +21,7 @@ if [[ retval -ne 0 ]]; then
 fi
 
 all_files=$(list_files_from_find)
+debug "File list: $all_files"
 if [[ retval -ne 0 ]]; then
     warning "File retrieval failed. Exiting..."
     exit $retval

@@ -289,6 +289,7 @@ class TestLogRetriverPyAST(unittest.TestCase):
 
             a2.debug('A debug message')
             a2.warn('A warning message')
+            a4.info('This should not be parsed')
             '''
         )
         c12_log_message = ["A debug message", "A warning message"]

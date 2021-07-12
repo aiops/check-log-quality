@@ -12,6 +12,7 @@ class LogInstructionParseError(Exception):
 
 class LogRetrieverPyAST:
     DEFAULT_LOGGING_MODULES = { "logging", "oslo_log" }
+    DEFAULT_GET_LOGGER_ATTR = { "getLogger" }
     DEFAULT_LOG_LEVEL_ALIASES = {
         "debug": ["debug"],
         "info": ["info"],
@@ -20,14 +21,23 @@ class LogRetrieverPyAST:
         "critical": ["critical"],
     }
     STRING_FORMAT_VARABLE_REG = r'(?<=[^\\])\{.*?\}|^\{.*?\}'
-    STRING_BINOP_VARABLE_REG = r'%[diouxXeEfFgGcrs%a]|%.*?.[diouxXeEfFgGcrs%a]'
+
+    STRING_BINOP_VARABLE_REG = r'^%\(.*?\)[diouxXeEfFgGcrs%a]|'\
+                               r'^%[diouxXeEfFgGcrs%a]|'\
+                               r'^%.*?.[diouxXeEfFgGcrs%a]|'\
+                               r'(?<=[^\\])%\(.*?\)[diouxXeEfFgGcrs%a]|'\
+                               r'(?<=[^\\])%[diouxXeEfFgGcrs%a]|'\
+                               r'(?<=[^\\])%.*?.[diouxXeEfFgGcrs%a]'
     
-    def __init__(self, logging_modules=DEFAULT_LOGGING_MODULES, variable_token="*"):
+    def __init__(self, logging_modules=DEFAULT_LOGGING_MODULES, variable_token="*", file_path=None):
+        self.file_path = file_path
         # The code being checked can just as easily "import logging as foo",
         # so it is necessary to process the imports and store in this field
         # what name the logging module is actually given.
         self._logging_modules = logging_modules
         self._logging_module_aliases = set()
+
+        self._get_logging_attr = self.DEFAULT_GET_LOGGER_ATTR
 
         self.log_level_aliases = {a for k in self.DEFAULT_LOG_LEVEL_ALIASES 
                                     for a in self.DEFAULT_LOG_LEVEL_ALIASES[k]}
@@ -37,6 +47,8 @@ class LogRetrieverPyAST:
         self.log_method_aliases = {self.log_method}
 
         self.variable_token = variable_token
+
+        self._assign_state = None
 
         self.line_numbers = []
         self.log_levels = []
@@ -48,8 +60,15 @@ class LogRetrieverPyAST:
             "line_number": []
         }
 
+    def _get_message(self, msg, node):
+        if self.file_path:
+            msg = "{} - {}:{}".format(msg, self.file_path, node.lineno)
+        else:
+            msg = "{} - {}".format(msg, node.lineno)
+        return msg
+
     def get_exception(self, msg, node):
-        return LogInstructionParseError("{} at line {}".format(msg, node.lineno))
+        return LogInstructionParseError(self._get_message(msg, node))
 
     def walk(self, astroid):
         """call visit events of astroid checkers for the given node, recurse on
@@ -67,10 +86,15 @@ class LogRetrieverPyAST:
     def visit(self, node):
         if isinstance(node, astroid.Import):
             self.visit_import(node)
+            self._assign_state = None
         elif isinstance(node, astroid.ImportFrom):
             self.visit_importfrom(node)
+            self._assign_state = None
         elif isinstance(node, astroid.Call):
             self.visit_call(node)
+            self._assign_state = None
+        elif isinstance(node, astroid.AssignName):
+            self._assign_state = node.name
 
     def visit_import(self, node):
         """Check if logging module is imported. Check potential aliases."""
@@ -131,6 +155,15 @@ class LogRetrieverPyAST:
                 pass
             return False, None
 
+        # Handles statements like LOG = logging.getLogger(__name__)
+        if (
+            self._assign_state and 
+            check_logging_attr(node.func) and 
+            node.func.attrname in self._get_logging_attr
+        ):
+            self._logging_module_aliases.add(self._assign_state)
+            return
+
         name = None
         if check_logging_attr(node.func):
             name = node.func.attrname
@@ -182,7 +215,8 @@ class LogRetrieverPyAST:
         if log_message:
             log_message = log_message.value
         else:
-            raise self.get_exception("Unable to parse log message.", log_message_node)
+            log.info(self._get_message("Unsable to parse log message", node))
+            log_message = self.variable_token
         line_number = node.lineno  
 
         return (log_message, level, line_number)
@@ -222,20 +256,37 @@ class LogRetrieverPyAST:
                 right = right.value
             else:
                 right = self.variable_token
-            value = left + right
+            value = str(left) + str(right)
             new_node = astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
                     parent=node.parent, value=value)
             node = self._parse_log_message(new_node)
+        elif (
+            isinstance(node, astroid.Dict) or 
+            isinstance(node, astroid.FunctionDef) or
+            isinstance(node, astroid.ClassDef)
+        ):
+            log.info(self._get_message("Cannot parse.", node))
+            return astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
+                    parent=node.parent, value=self.variable_token)
+        elif isinstance(node, astroid.FunctionDef):
+            log.info(self._get_message("Cannot parse function definition.", node))
+            return astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
+                    parent=node.parent, value=self.variable_token)
         else:
-            #print(node.repr_tree())
+            #print(node.repr_tree(), node.lineno)
             inferred = self._safe_infer(node)
             #print(inferred.repr_tree())
             if inferred:
                 node = self._clone_node(node, inferred)
             else:
-                return astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
+                log.info(self._get_message("Unable to parse.", node))
+                node = astroid.Const(lineno=node.lineno, col_offset=node.col_offset, 
                             parent=node.parent, value=self.variable_token)
             node = self._parse_log_message(node)
+        return node
+
+    def _infer_or_const(self, node):
+        
         return node
 
 
@@ -243,7 +294,7 @@ class LogRetrieverPyAST:
         """Infer log level when e.g. logging.log(<level>, msg...) statement is given."""
         if isinstance(arg, astroid.Name) or isinstance(arg, astroid.Call):
             arg = self._safe_infer(arg)
-            if isinstance(arg, astroid.Const):
+            if arg and isinstance(arg, astroid.Const):
                 level = log.getLevelName(arg.value)
             else:
                 raise self.get_exception("Unable to retrieve log level.", arg)
@@ -285,7 +336,7 @@ class LogRetrieverPyAST:
         all_args = []
         for a in arg_list:
             a = self._parse_log_message(a)
-            if a and a != "":
+            if a and a.value != '':
                 all_args.append(a.value)
             else:
                 all_args.append(self.variable_token)
@@ -318,24 +369,25 @@ class LogRetrieverPyAST:
     def _subst(self, reg, args, value):
         for a in args:
             value = re.sub(reg, str(a), value, count=1)
+        value = re.sub(reg, self.variable_token, value)
         return value
 
     
     def _safe_infer(self, node, context=None):
-        """Return the inferred value for the given node.
-        Return None if inference failed or if there is some ambiguity (more than
-        one node has been inferred of different types).
-        """
         inferred_types = set()
         try:
             infer_gen = node.infer(context=context)
             value = next(infer_gen)
         except astroid.InferenceError:
             return None
+        except RecursionError:
+            return None
 
         if value is not astroid.Uninferable:
-            inferred_types.add(self._get_python_type_of_node(value))
-
+            try:
+                inferred_types.add(self._get_python_type_of_node(value))
+            except RecursionError as re:
+                return None
         try:
             for inferred in infer_gen:
                 inferred_type = self._get_python_type_of_node(inferred)
@@ -345,6 +397,8 @@ class LogRetrieverPyAST:
             return None  # There is some kind of ambiguity
         except StopIteration:
             return value
+        except RecursionError as re:
+            return None
         return value if len(inferred_types) <= 1 else None
 
     def _get_python_type_of_node(self, node):
@@ -352,17 +406,35 @@ class LogRetrieverPyAST:
         if callable(pytype):
             return pytype()
         return None
-
-    
+   
     def _resolve_logging_args(self, log_message, args):
-        parsed_args = self._parse_arg_list(args)
+        if len(args) == 1 and isinstance(args[0], astroid.Call):
+            #print(node.repr_tree(), node.lineno)
+            inferred = self._safe_infer(args[0])
+            #print(inferred.repr_tree())
+            if inferred:
+                arg = self._clone_node(args[0], inferred)
+            else:
+                log.info(self._get_message("Unable to parse parameter.", args[0]))
+                arg = astroid.Const(lineno=args[0].lineno, col_offset=args[0].col_offset, 
+                            parent=args[0].parent, value=self.variable_token)
+            args = [arg]
+        if len(args) == 1 and isinstance(args[0], astroid.Dict):
+            new_args = []
+            for a in args[0].items:
+                new_args.append(a[1])
+        else:
+            new_args = args
+        parsed_args = self._parse_arg_list(new_args)
         log_message = self._subst(self.STRING_BINOP_VARABLE_REG, parsed_args, log_message)
         
         return log_message
+
+    def logs_found(self):
+        return len(self.log_messages) > 0
         
 
 def get_ast(filepath):
-
     MANAGER = astroid.MANAGER
     try:
         ast = MANAGER.ast_from_file(filepath, source=True)
@@ -378,21 +450,28 @@ def main():
     output_file = args.output
     output_header = args.output_header
 
+    if not file_exist(input_file):
+        log.error("File does not exist or is not a file: %s", input_file)
+        exit()
+
     if not is_python_file(input_file):
         log.error("Only python files are supported. This is not a python file: %s", input_file)
+        exit()
 
     ast = get_ast(input_file)
     if not ast:
-        log.error("AST parsin failed for python file: %s", input_file)
+        log.error("AST parsing failed for python file: %s", input_file)
+        exit()
 
-    lr = LogRetrieverPyAST()
+    lr = LogRetrieverPyAST(file_path=input_file)
     try:
         lr.walk(ast)
     except Exception as e:
         log.error("Parsing of log messages failed. File: %s", input_file)
         log.exception(e)
 
-    store_results(output_file, lr.line_numbers, lr.log_levels, lr.log_messages, output_header)
+    if lr.logs_found():
+        store_results(output_file, input_file, lr.line_numbers, lr.log_levels, lr.log_messages, output_header)
 
 
 if __name__ == "__main__":
