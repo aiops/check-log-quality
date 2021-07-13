@@ -1,10 +1,8 @@
 import unittest
-import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from retriever_py import LogRetrieverPy
-from tests.helpers import *
+from log_quality.retrieve_logs.retriever_py import LogRetrieverPy
+from log_quality.tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")

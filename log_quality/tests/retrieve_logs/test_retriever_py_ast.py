@@ -4,8 +4,8 @@ import logging as log
 
 import astroid
 
-from python.retriever_py_ast import LogRetrieverPyAST
-from python.tests.helpers import *
+from log_quality.retrieve_logs.retriever_py_ast import LogRetrieverPyAST
+from log_quality.tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")

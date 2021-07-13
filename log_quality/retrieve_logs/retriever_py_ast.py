@@ -3,7 +3,7 @@ import re
 
 import astroid
 
-from utils import *
+from log_quality.utils import *
 
 
 class LogInstructionParseError(Exception):

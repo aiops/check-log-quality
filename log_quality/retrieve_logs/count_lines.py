@@ -1,9 +1,6 @@
-import sys
-import os
 import logging as log
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils import *
+from log_quality.utils import *
 
 def main():
     args = setup_command_line_arg()
@@ -13,10 +10,8 @@ def main():
 
     try:
         with open(input_file, "r") as f:
-            i = 0
-            for idx, line in enumerate(f.readlines()):
-                i += 1
-            print("File {} contains {} lines.".format(input_file, i))
+            num_lines = len(f.readlines())
+            print("File {} contains {} lines.".format(input_file, num_lines))
     except UnicodeDecodeError as ede:
         log.warning("Unable to read non-textual file {}".format(input_file))
     except Exception as e:
@@ -25,7 +20,7 @@ def main():
 
     try:
         with open(output_file, "w") as f:
-            f.write("File {} contains {} lines.".format(input_file, i))
+            f.write("File {} contains {} lines.".format(input_file, num_lines))
     except Exception as e:
         log.exception(e)
         exit(-1)

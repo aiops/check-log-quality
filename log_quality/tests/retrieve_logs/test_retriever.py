@@ -1,11 +1,8 @@
 import unittest
-import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-#sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), '..'))
-from retriever import LogRetriever
-from tests.helpers import *
+from log_quality.retrieve_logs.retriever import LogRetriever
+from log_quality.tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")
@@ -79,10 +76,10 @@ class TestLogRetriver(unittest.TestCase):
 
         with self.assertRaises(Exception) as c:
             lr1.get_log_line(t3, 0)
-            self.assertTrue('Maximum number for multiline logs' in context.exception)
+            self.assertTrue('Maximum number for multiline logs' in c.exception)
         with self.assertRaises(Exception) as c:
             lr1.get_log_line(t4, 0)
-            self.assertTrue('Log line incomplete but EOF reached' in context.exception)
+            self.assertTrue('Log line incomplete but EOF reached' in c.exception)
 
         lr2 = LogRetriverTest(multiline_max=15)
         self.assertEqual(lr2.get_log_line(t3, 0), 'log.error("adsffsdf","asdfsdf asdf (),"()()ppasdas"asd"asd)')
