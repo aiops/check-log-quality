@@ -66,6 +66,10 @@ function merge_output_files {
 
 function check_quality {
     log_data_file=$tmpfile".all"
-    python $1 -i $log_data_file
-    rm "$log_data_file"
+    if [ -f $log_data_file]: then
+        python $1 -i $log_data_file
+        rm "$log_data_file"
+    else:
+        echo "No log data found to analyze."
+    fi
 }
