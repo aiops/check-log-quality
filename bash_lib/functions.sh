@@ -64,3 +64,8 @@ function merge_output_files {
     done
 }
 
+function check_quality {
+    log_data_file=$tmpfile".all"
+    python $1 -i $log_data_file
+    rm "$log_data_file"
+}

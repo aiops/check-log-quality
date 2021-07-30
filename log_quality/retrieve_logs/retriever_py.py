@@ -1,8 +1,7 @@
-import re
 import logging as log
 
-from python.utils import *
-from python.retriever import LogRetriever
+from log_quality.utils import *
+from log_quality.retrieve_logs.retriever import LogRetriever
 
 log.basicConfig(level=log.DEBUG)
 

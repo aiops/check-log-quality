@@ -39,3 +39,10 @@ if [[ retval -ne 0 ]]; then
     warning "Output file merging failed. Exiting..."
     exit $retval
 fi
+
+check_quality $check_quality_py
+retval=$?
+if [[ retval -ne 0 ]]; then
+    warning "Log quality checking failed. Exiting..."
+    exit $retval
+fi

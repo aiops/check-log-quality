@@ -31,9 +31,13 @@ function initialise_variables {
     export tmpfile=".retrieved-logs"
 
     # Define log message retrieve scripts based on file extension
-    retrieve_py="$source_directory/python/retriever_py_ast.py"
+    retrieve_py="$source_directory/log_quality/retrieve_logs/retriever_py_ast.py"
     declare -gA retrieve_scripts=( [".py"]=$retrieve_py )
     export retrieve_scripts
+
+    # Define log message retrieve scripts based on file extension
+    check_quality_py="$source_directory/log_quality/log_quality/main.py"
+    export check_quality_py
 
     # Build filter for find call
     cmd_part_include_files=""
