@@ -7,7 +7,7 @@ FROM python:3.8-slim
 # set the working directory in the container
 WORKDIR /work
 
-COPY python/requirements.txt .
+COPY log_quality/requirements.txt .
 # install dependencies
 RUN pip install -r requirements.txt
 COPY . .
