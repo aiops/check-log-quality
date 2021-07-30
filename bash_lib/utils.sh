@@ -35,7 +35,7 @@ function initialise_variables {
     declare -gA retrieve_scripts=( [".py"]=$retrieve_py )
     export retrieve_scripts
 
-    # Define log message retrieve scripts based on file extension
+    # Define log quality checking script
     check_quality_py="$source_directory/log_quality/log_quality/main.py"
     export check_quality_py
 
