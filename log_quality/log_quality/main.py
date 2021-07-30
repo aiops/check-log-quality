@@ -3,20 +3,25 @@ import pandas as pd
 from quality import *
 from report import *
 
+import sys
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 def _print_summary(quality_module_level, quality_class_level, quality_module_ling, quality_class_ling):
-    print("Running log level analysis with class model {} from module {}".format(
+    eprint("Running log level analysis with class model {} from module {}".format(
         quality_class_level, quality_module_level))
-    print("Running log language analysis with class model {} from module {}".format(
+    eprint("Running log language analysis with class model {} from module {}".format(
         quality_class_ling, quality_module_ling))
 
 def _print_separator(title):
-    print("")
-    print("")
-    print("#######################")
-    print("{}".format(title))
-    print("#######################")
-    print("")
-    print("")
+    eprint("")
+    eprint("")
+    eprint("#######################")
+    eprint("{}".format(title))
+    eprint("#######################")
+    eprint("")
+    eprint("")
 
 
 def main():
@@ -43,7 +48,7 @@ def main():
         r2 = ReportDecoratorLevelText(quality_module_level, quality_class_level)
         rep2 = r2(log_message_filtered_df)
     except Exception as e:
-        print("Failed to run log level quality checking.")
+        eprint("Failed to run log level quality checking.")
         traceback.print_exc()
         rep2 = ""
 
@@ -51,26 +56,26 @@ def main():
         r3 = ReportDecoratorLingText(quality_module_ling, quality_class_ling)
         rep3 = r3(log_message_filtered_df)
     except Exception as e:
-        print("Failed to run log level quality checking.")
+        eprint("Failed to run log level quality checking.")
         traceback.print_exc()
         rep3 = ""
     
     if rep2:
         _print_separator("Log Level Quality Report")
-        print(rep2)
+        eprint(rep2)
     if rep3:
         _print_separator("Log Language Quality Report")
-        print(rep3)
+        eprint(rep3)
     if rep1:
         _print_separator("Parsing & Resolve Report")
-        print(rep1)
+        eprint(rep1)
 
-    print("")
-    print("")
-    print("*****************************************************************")
-    print("***** If you like our tool visit us at https://logsight.ai ******")
-    print("*****************************************************************")
-    print("")
+    eprint("")
+    eprint("")
+    eprint("*****************************************************************")
+    eprint("***** If you like our tool visit us at https://logsight.ai ******")
+    eprint("*****************************************************************")
+    eprint("")
     
 
 if __name__ == "__main__":
