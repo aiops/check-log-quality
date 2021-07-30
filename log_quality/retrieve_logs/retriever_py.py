@@ -1,4 +1,3 @@
-import re
 import logging as log
 
 from log_quality.utils import *
