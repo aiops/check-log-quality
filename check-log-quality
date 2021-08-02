@@ -1,9 +1,7 @@
 #!/bin/bash
 
-export source_directory="${BASH_SOURCE[0]%check-log-quality}"
-if [[ "$source_directory" == "" ]]; then
-    source_directory='./'
-fi
+source_directory=`dirname $(readlink -e $0)`
+
 
 source "${source_directory}/bash_lib/utils.sh"
 source "${source_directory}/bash_lib/functions.sh"
