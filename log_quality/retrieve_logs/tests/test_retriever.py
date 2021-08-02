@@ -1,8 +1,8 @@
-import unittest
 import os
+import unittest
 
 from log_quality.retrieve_logs.retriever import LogRetriever
-from log_quality.tests.helpers import *
+from log_quality.retrieve_logs.tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")
