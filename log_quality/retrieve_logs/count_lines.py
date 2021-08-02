@@ -1,6 +1,6 @@
 import logging as log
 
-from utils import *
+from .utils import *
 
 def main():
     args = setup_command_line_arg()
