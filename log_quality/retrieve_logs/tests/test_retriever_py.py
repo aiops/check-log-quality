@@ -2,7 +2,7 @@ import unittest
 import os
 
 from log_quality.retrieve_logs.retriever_py import LogRetrieverPy
-from log_quality.tests.helpers import *
+from tests.helpers import *
 
 base_path = os.path.dirname(__file__)
 test_file_path = os.path.join(base_path, "test_files")
