@@ -41,24 +41,32 @@ def main():
 
     _print_summary(quality_module_level, quality_class_level, quality_module_ling, quality_class_ling)
 
-    r1 = ReportDecoratorResolveText()
-    rep1 = r1(log_message_df)
+    if len(log_message_df) > 0:
+        r1 = ReportDecoratorResolveText()
+        rep1 = r1(log_message_df)
+    else:
+        logging.warning("No log messages to analyze.")
+        exit(0)
 
-    try:
-        r2 = ReportDecoratorLevelText(quality_module_level, quality_class_level)
-        rep2 = r2(log_message_filtered_df)
-    except Exception as e:
-        eprint("Failed to run log level quality checking.")
-        traceback.print_exc()
-        rep2 = ""
+    if len(log_message_filtered_df) > 0:
+        try:
+            r2 = ReportDecoratorLevelText(quality_module_level, quality_class_level)
+            rep2 = r2(log_message_filtered_df)
+        except Exception as e:
+            eprint("Failed to run log level quality checking.")
+            traceback.print_exc()
+            rep2 = ""
 
-    try:
-        r3 = ReportDecoratorLingText(quality_module_ling, quality_class_ling)
-        rep3 = r3(log_message_filtered_df)
-    except Exception as e:
-        eprint("Failed to run log level quality checking.")
-        traceback.print_exc()
-        rep3 = ""
+        try:
+            r3 = ReportDecoratorLingText(quality_module_ling, quality_class_ling)
+            rep3 = r3(log_message_filtered_df)
+        except Exception as e:
+            eprint("Failed to run log language quality checking.")
+            traceback.print_exc()
+            rep3 = ""
+    else:
+        logging.warning("No log messages for quality analysis.")
+        rep2 = rep3 = None
     
     if rep2:
         _print_separator("Log Level Quality Report")

@@ -1,4 +1,5 @@
 
+from logging import log
 import numpy as np
 from utils import *
 
@@ -52,6 +53,13 @@ class LogQualityModel(LogQuality):
             logging.error("Unable to import class %s from module %s.", module_name, class_name)
             raise e
 
+    def _predict(self, log_lines):
+        if len(log_lines) > 0:
+            predictions = self.model.predict_batch(log_lines)
+        else:
+            raise IndexError("No log lines to analyze.")
+        return predictions
+
 
 class LogQualityLevel(LogQualityModel):
     def __init__(self, module_name, class_name):
@@ -69,13 +77,13 @@ class LogQualityLevel(LogQualityModel):
         filtered_valid_level = log_lines_df[mask]
 
         log_lines = filtered_valid_level[LogQuality.HEADER_CONTENT].tolist()
-        result = self.model.predict_batch(log_lines)
-        filtered_valid_level[LogQuality.HEADER_RESULT] = result
+        predictions = self._predict(log_lines)
+        filtered_valid_level[LogQuality.HEADER_RESULT] = predictions
 
         filtered_valid_level[LogQuality.HEADER_LEVEL] = \
             filtered_valid_level[LogQuality.HEADER_LEVEL].apply(lambda x: self.label2id[x])
 
-        mask = filtered_valid_level[LogQuality.HEADER_LEVEL] == result
+        mask = filtered_valid_level[LogQuality.HEADER_LEVEL] == predictions
 
         filtered_bad_level = filtered_valid_level[~mask]
         good_logs = filtered_valid_level[mask]
@@ -93,7 +101,7 @@ class LogQualityLing(LogQualityModel):
 
     def __call__(self, log_lines_df):
         log_lines = log_lines_df[LogQuality.HEADER_CONTENT].tolist()
-        predictions = self.model.predict_batch(log_lines)
+        predictions = self._predict(log_lines)
 
         overall_result = [r["prediction"] for r in predictions]
 
